@@ -46,5 +46,108 @@ classdef farkleBackend < handle
             obj.selectedHand(end+1) = obj.currentHand(obj.currentHandIndex); % Selects the die at the current hand index and adds it to array selectedHand
             obj.currentHand(obj.currentHandIndex) = []; % dice which was moved to selectedHand is removed from currentHand
         end
+
+        function scoreHand(obj)
+            scoringHand = obj.selectedHand;
+            counts = histcounts(scoringHand, 0.5:6.5); % creates 1x6 array, each element contains the number of entries with that corresponding index
+            % scoring combinations
+
+            % 1. Check for straights (exclusive rules)
+            % Full straight: 1–6
+            if isequal(counts, [1 1 1 1 1 1])
+                obj.turnPoints = obj.turnPoints + 1500;
+                return;
+            end
+
+            % Partial straight: 1–5
+            if isequal(counts(1:5), [1 1 1 1 1])
+                obj.turnPoints = obj.turnPoints + 500;
+                return;
+            end
+
+            % Partial straight: 2–6
+            if isequal(counts(2:6), [1 1 1 1 1])
+                obj.turnPoints = obj.turnPoints + 750;
+                return;
+            end
+
+            % 2. Score three-or-more-of-a-kind
+            for face = 1:6
+                if counts(face) >= 3
+            
+                    % Base value for three-of-a-kind
+                    if face == 1
+                        base = 1000;
+                    else
+                        base = face * 100;
+                    end
+
+                    % Multiplier for 4,5,6 of a kind
+                    multiplier = 1;
+
+                    if counts(face) == 4
+                        multiplier = 2;
+                    end
+                    if counts(face) == 5
+                        multiplier = 4;
+                    end
+                    if counts(face) == 6
+                        multiplier = 8;
+                    end
+
+                    obj.turnPoints = obj.turnPoints + (base * multiplier);
+                    counts(face) = 0; % Remove these dice from further single-die scoring
+                end
+            end
+
+            % 3. Score leftover single 1s and 5s only
+            if counts(1) == 1
+                obj.turnPoints = obj.turnPoints + 100;   % single 1s
+            end
+            if counts(5) == 1
+                obj.turnPoints = obj.turnPoints + 50;    % single 5s  
+            end
+        end
+
+        function isBust = checkForBust(obj)
+            initialHand = obj.currentHand;
+            counts = histcounts(initialHand, 0.5:6.5);
+            isBust = true;
+
+            % 1. Check for straights
+            if isequal(counts, [1 1 1 1 1 1])
+                isBust = false; 
+                return;
+            end
+            if isequal(counts(1:5), [1 1 1 1 1])
+                isBust = false; 
+                return;
+            end
+            if isequal(counts(2:6), [1 1 1 1 1])
+                isBust = false; 
+                return;
+            end
+
+            % 2. Three+ of a kind
+            if any(counts >= 3)
+                isBust = false; 
+                return;
+            end
+
+            % 3. Single 1s or 5s (one only, not two)
+            if counts(1) == 1
+                isBust = false; 
+                return;
+            end
+            if counts(5) == 1
+                isBust = false; 
+                return;
+            end
+        end
+
+        function endTurn(obj)
+            % will add turnPoints to playerScores(currentPlayer)
+            % pass turn will be separate function, set up in frontend?
+        end
     end
 end
