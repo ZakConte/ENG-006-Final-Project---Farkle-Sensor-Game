@@ -9,6 +9,10 @@ classdef farkleBackend < handle
         selectedHand
         turnPoints
         gameOver
+        TargetSignalA; % Orientation Azimuth signal
+        TargetSignalP; % Orientation Pitch signal
+        TargetSignalR; % Orientation Roll signal
+        TargetSignalTs; % Signal Time Stamp
     end
 
     methods
@@ -25,20 +29,26 @@ classdef farkleBackend < handle
 
         function connectDevice(obj)
             obj.mobileDevConnection = mobiledev; % creates mobile connection
-            obj.mobileDevConnection.AccelerationSensorEnabled = 1; % turns on acceleration sensor
+            obj.mobileDevConnection.OrientationSensorEnabled = 1; % turns on orientation sensor
             disp('Device Connected!');
         end
 
         function initialRoll(obj)
             obj.currentHand = randi([1 6], 1, 6); % creates a random 6 length array with each index ranging from 1-6
             obj.selectedHand = [];
+            obj.currentHandIndex = 1;
         end
 
         function rollRemainingDice(obj)
             diceRemaining = length(obj.currentHand);
             obj.currentHand = randi([1 6], 1, diceRemaining); % re-rolls the number of dice remaining in players hand
             obj.selectedHand = [];
+            obj.currentHandIndex = 1;
+        end
 
+        function incrementHandIndex(obj)
+            n = length(obj.currentHand);
+            obj.currentHandIndex = mod(obj.currentHandIndex, n) + 1; % incrementing +1 from 1 to the length of currentHand, looping back around if needed
         end
 
         function selectDie(obj, handIndex)
@@ -134,20 +144,54 @@ classdef farkleBackend < handle
                 return;
             end
 
-            % 3. Single 1s or 5s (one only, not two)
-            if counts(1) == 1
+            % 3. Single 1s or 5s (checking for one or more)
+            if counts(1) >= 1
                 isBust = false; 
                 return;
             end
-            if counts(5) == 1
+            if counts(5) >= 1
                 isBust = false; 
                 return;
             end
         end
 
         function endTurn(obj)
-            % will add turnPoints to playerScores(currentPlayer)
-            % pass turn will be separate function, set up in frontend?
+            obj.playerScores(obj.currentPlayer) = obj.playerScores(obj.currentPlayer) + obj.turnPoints; % adds points from the turn to the players total score
+
+            obj.turnPoints = 0;
+            obj.currentHand = [];
+            obj.selectedHand = [];
+        end
+
+        function switchPlayer(obj)
+            obj.currentPlayer = 3 - obj.currentPlayer; % swaps from player 1 to player 2
+        end
+
+        function beginLogging(obj)
+            obj.mobileDevConnection.Logging = 1;
+            [ang, ts] = orientlog(obj.mobileDevConnection);
+            azimuth = ang(end, 1);
+            pitch = ang(end, 2);
+            roll = ang(end, 3);
+
+            obj.TargetSignalA = azimuth;
+            obj.TargetSignalP = pitch;
+            obj.TargetSignalR = roll;
+
+            obj.TargetSignalTs = ts;
+        end
+
+        function endLogging(obj)
+            obj.mobileDevConnection.Logging = 0;
+        end
+
+        function updateOrientation(obj)
+            [ang, ts] = orientlog(obj.mobileDevConnection);
+
+            obj.TargetSignalA  = ang(end, 1);
+            obj.TargetSignalP  = ang(end, 2);
+            obj.TargetSignalR  = ang(end, 3);
+            obj.TargetSignalTs = ts(end);
         end
     end
 end
