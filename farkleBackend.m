@@ -1,14 +1,19 @@
 classdef farkleBackend < handle
 
     properties (Access = private)
-        mobileDevConnection
-        playerScores
+
+    end
+
+    properties (Access = public)
         currentPlayer
-        currentHand
-        currentHandIndex
         selectedHand
+        selectedSlots
         turnPoints
         gameOver
+        currentHandIndex
+        currentHand
+        mobileDevConnection
+        playerScores
         TargetSignalA; % Orientation Azimuth signal
         TargetSignalP; % Orientation Pitch signal
         TargetSignalR; % Orientation Roll signal
@@ -25,10 +30,11 @@ classdef farkleBackend < handle
             obj.selectedHand = [];
             obj.turnPoints = 0;
             obj.gameOver = false;
+            obj.selectedSlots = [];
         end
 
         function connectDevice(obj)
-            obj.mobileDevConnection = mobiledev; % creates mobile connection
+            obj.mobileDevConnection = mobiledev(); % creates mobile connection
             obj.mobileDevConnection.OrientationSensorEnabled = 1; % turns on orientation sensor
             disp('Device Connected!');
         end
@@ -37,6 +43,7 @@ classdef farkleBackend < handle
             obj.currentHand = randi([1 6], 1, 6); % creates a random 6 length array with each index ranging from 1-6
             obj.selectedHand = [];
             obj.currentHandIndex = 1;
+            disp('Running Initial Roll');
         end
 
         function rollRemainingDice(obj)
@@ -170,6 +177,11 @@ classdef farkleBackend < handle
         function beginLogging(obj)
             obj.mobileDevConnection.Logging = 1;
             [ang, ts] = orientlog(obj.mobileDevConnection);
+
+            if isempty(ang)
+                return;
+            end
+
             azimuth = ang(end, 1);
             pitch = ang(end, 2);
             roll = ang(end, 3);
@@ -187,11 +199,17 @@ classdef farkleBackend < handle
 
         function updateOrientation(obj)
             [ang, ts] = orientlog(obj.mobileDevConnection);
+    
+            % FIX: prevent invalid indexing when no samples exist yet
+            if isempty(ang)
+                return;
+            end
 
             obj.TargetSignalA  = ang(end, 1);
             obj.TargetSignalP  = ang(end, 2);
             obj.TargetSignalR  = ang(end, 3);
             obj.TargetSignalTs = ts(end);
+            %disp(ang(end, :)); % BUGFIX LINE: WILL CONSTANTLY DISPLAY PHONE ORIENTATION VALUES IN CONSOLE
         end
     end
 end
