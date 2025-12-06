@@ -7,17 +7,18 @@ classdef farkleBackend < handle
     properties (Access = public)
         currentPlayer
         selectedHand
-        selectedSlots
         turnPoints
         gameOver
+        gamePoints
         currentHandIndex
         currentHand
         mobileDevConnection
         playerScores
-        TargetSignalA; % Orientation Azimuth signal
-        TargetSignalP; % Orientation Pitch signal
-        TargetSignalR; % Orientation Roll signal
-        TargetSignalTs; % Signal Time Stamp
+        bgPlayer %background music
+        TargetSignalA % Orientation Azimuth signal
+        TargetSignalP % Orientation Pitch signal
+        TargetSignalR % Orientation Roll signal
+        TargetSignalTs % Signal Time Stamp
     end
 
     methods
@@ -30,7 +31,12 @@ classdef farkleBackend < handle
             obj.selectedHand = [];
             obj.turnPoints = 0;
             obj.gameOver = false;
-            obj.selectedSlots = [];
+            obj.gamePoints = 1500;
+
+            [y, Fs] = audioread('happy medieval.mp3');
+            obj.bgPlayer = audioplayer(y,Fs);
+            obj.bgPlayer.StopFcn = @(~,~) play(obj.bgPlayer); %loop audio
+            play(obj.bgPlayer);
         end
 
         function connectDevice(obj)
@@ -51,17 +57,23 @@ classdef farkleBackend < handle
             obj.currentHand = randi([1 6], 1, diceRemaining); % re-rolls the number of dice remaining in players hand
             obj.selectedHand = [];
             obj.currentHandIndex = 1;
+            disp('Rerolling Dice');
         end
 
         function incrementHandIndex(obj)
             n = length(obj.currentHand);
+            if n == 0
+                return;
+            end
             obj.currentHandIndex = mod(obj.currentHandIndex, n) + 1; % incrementing +1 from 1 to the length of currentHand, looping back around if needed
+            disp('Incrementing Hand');
         end
 
         function selectDie(obj, handIndex)
             obj.currentHandIndex = handIndex; % Will cycle through 1-6, moves index of currentHand into new array for scoring. currentHandIndex will shift +1 or -1 depending on sensor controls to be implemented
             obj.selectedHand(end+1) = obj.currentHand(obj.currentHandIndex); % Selects the die at the current hand index and adds it to array selectedHand
             obj.currentHand(obj.currentHandIndex) = []; % dice which was moved to selectedHand is removed from currentHand
+            disp('Selecting Dice');
         end
 
         function scoreHand(obj)
@@ -124,6 +136,7 @@ classdef farkleBackend < handle
             if counts(5) == 1
                 obj.turnPoints = obj.turnPoints + 50;    % single 5s  
             end
+            disp('Scoring Hand');
         end
 
         function isBust = checkForBust(obj)
@@ -162,12 +175,10 @@ classdef farkleBackend < handle
             end
         end
 
-        function endTurn(obj)
+        function scoreTurn(obj)
             obj.playerScores(obj.currentPlayer) = obj.playerScores(obj.currentPlayer) + obj.turnPoints; % adds points from the turn to the players total score
 
             obj.turnPoints = 0;
-            obj.currentHand = [];
-            obj.selectedHand = [];
         end
 
         function switchPlayer(obj)
