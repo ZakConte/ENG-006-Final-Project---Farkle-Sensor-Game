@@ -7,17 +7,19 @@ classdef farkleBackend < handle
     properties (Access = public)
         currentPlayer
         selectedHand
-        selectedSlots
         turnPoints
         gameOver
+        gamePoints
         currentHandIndex
         currentHand
         mobileDevConnection
         playerScores
-        TargetSignalA; % Orientation Azimuth signal
-        TargetSignalP; % Orientation Pitch signal
-        TargetSignalR; % Orientation Roll signal
-        TargetSignalTs; % Signal Time Stamp
+        scoredDice
+        previousScoredDice
+        TargetSignalA % Orientation Azimuth signal
+        TargetSignalP % Orientation Pitch signal
+        TargetSignalR % Orientation Roll signal
+        TargetSignalTs % Signal Time Stamp
     end
 
     methods
@@ -29,8 +31,9 @@ classdef farkleBackend < handle
             obj.currentHand = [];
             obj.selectedHand = [];
             obj.turnPoints = 0;
+            obj.scoredDice = 0;
             obj.gameOver = false;
-            obj.selectedSlots = [];
+            obj.gamePoints = 1500;
         end
 
         function connectDevice(obj)
@@ -51,40 +54,51 @@ classdef farkleBackend < handle
             obj.currentHand = randi([1 6], 1, diceRemaining); % re-rolls the number of dice remaining in players hand
             obj.selectedHand = [];
             obj.currentHandIndex = 1;
+            disp('Rerolling Dice');
         end
 
         function incrementHandIndex(obj)
             n = length(obj.currentHand);
+            if n == 0
+                return;
+            end
             obj.currentHandIndex = mod(obj.currentHandIndex, n) + 1; % incrementing +1 from 1 to the length of currentHand, looping back around if needed
+            disp('Incrementing Hand');
         end
 
         function selectDie(obj, handIndex)
             obj.currentHandIndex = handIndex; % Will cycle through 1-6, moves index of currentHand into new array for scoring. currentHandIndex will shift +1 or -1 depending on sensor controls to be implemented
             obj.selectedHand(end+1) = obj.currentHand(obj.currentHandIndex); % Selects the die at the current hand index and adds it to array selectedHand
             obj.currentHand(obj.currentHandIndex) = []; % dice which was moved to selectedHand is removed from currentHand
+            disp('Selecting Dice');
         end
 
         function scoreHand(obj)
             scoringHand = obj.selectedHand;
             counts = histcounts(scoringHand, 0.5:6.5); % creates 1x6 array, each element contains the number of entries with that corresponding index
+            remaining = counts;
+
             % scoring combinations
 
             % 1. Check for straights (exclusive rules)
             % Full straight: 1–6
             if isequal(counts, [1 1 1 1 1 1])
                 obj.turnPoints = obj.turnPoints + 1500;
+                obj.scoredDice = 6;
                 return;
             end
 
             % Partial straight: 1–5
-            if isequal(counts(1:5), [1 1 1 1 1])
+            if isequal(counts(1:5), [1 1 1 1 1]) && counts(6) == 0
                 obj.turnPoints = obj.turnPoints + 500;
+                obj.scoredDice = 5;
                 return;
             end
 
             % Partial straight: 2–6
             if isequal(counts(2:6), [1 1 1 1 1])
                 obj.turnPoints = obj.turnPoints + 750;
+                obj.scoredDice = 5;
                 return;
             end
 
@@ -99,6 +113,8 @@ classdef farkleBackend < handle
                         base = face * 100;
                     end
 
+                    n = remaining(face);
+
                     % Multiplier for 4,5,6 of a kind
                     multiplier = 1;
 
@@ -111,7 +127,9 @@ classdef farkleBackend < handle
                     if counts(face) == 6
                         multiplier = 8;
                     end
-
+                    
+                    obj.scoredDice = obj.scoredDice + counts(face);
+                    remaining(face) = remaining(face) - n; % will be zero if only scoring combinations are selecting
                     obj.turnPoints = obj.turnPoints + (base * multiplier);
                     counts(face) = 0; % Remove these dice from further single-die scoring
                 end
@@ -120,10 +138,23 @@ classdef farkleBackend < handle
             % 3. Score leftover single 1s and 5s only
             if counts(1) == 1
                 obj.turnPoints = obj.turnPoints + 100;   % single 1s
+                remaining(1) = remaining(1) - 1;
+                obj.scoredDice = obj.scoredDice + 1;
             end
             if counts(5) == 1
-                obj.turnPoints = obj.turnPoints + 50;    % single 5s  
+                obj.turnPoints = obj.turnPoints + 50;    % single 5s
+                remaining(5) = remaining(5) - 1;
+                obj.scoredDice = obj.scoredDice + 1;
             end
+
+            % checks if any additional non-scoring dice are selected alongside scoring
+            % combinations, if so, turnPoints = 0
+            if any(remaining > 0)
+                obj.turnPoints = 0;
+                obj.scoredDice = obj.previousScoredDice;
+            end
+
+            disp('Scoring Hand');
         end
 
         function isBust = checkForBust(obj)
@@ -162,16 +193,15 @@ classdef farkleBackend < handle
             end
         end
 
-        function endTurn(obj)
+        function scoreTurn(obj)
             obj.playerScores(obj.currentPlayer) = obj.playerScores(obj.currentPlayer) + obj.turnPoints; % adds points from the turn to the players total score
 
             obj.turnPoints = 0;
-            obj.currentHand = [];
-            obj.selectedHand = [];
         end
 
         function switchPlayer(obj)
             obj.currentPlayer = 3 - obj.currentPlayer; % swaps from player 1 to player 2
+            obj.scoredDice = 0;
         end
 
         function beginLogging(obj)
