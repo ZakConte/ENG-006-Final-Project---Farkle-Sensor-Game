@@ -5,6 +5,12 @@ classdef farkleBackend < handle
     end
 
     properties (Access = public)
+
+        tsChannelID = 3196892;
+        tsWriteKey = 'AIVYB5ZSJL8TO06U';
+        tsReadKey = 'C8WDRTJ1HDIAEIHN';
+        tsPlayerID = 1;
+
         currentPlayer
         selectedHand
         turnPoints
@@ -173,6 +179,10 @@ classdef farkleBackend < handle
                 isBust = false; 
                 return;
             end
+
+
+
+
         end
 
         function scoreTurn(obj)
@@ -222,5 +232,29 @@ classdef farkleBackend < handle
             obj.TargetSignalTs = ts(end);
             %disp(ang(end, :)); % BUGFIX LINE: WILL CONSTANTLY DISPLAY PHONE ORIENTATION VALUES IN CONSOLE
         end
+
+        function writeGameState(obj)
+            dataValues = [obj.currentPlayer, obj.playerScores(1), obj.playerScores(2)];
+            fieldIDs = [1, 2, 3];
+
+           
+            thingspeakwrite(obj.tsChannelID, dataValues, ...
+                    'FieldName', fieldIDs, ...
+                    'WriteKey', obj.tsWriteKey);
+            
+        end
+
+        function readGameState(obj)
+            [readData, ~] = thingspeakread(obj.tsChannelID, 'Fields', [1, 2, 3], ...
+                'ReadKey', obj.tsReadKey, ...
+                'NumPoints', 1);
+            if ~isempty(readData)
+                obj.currentPlayer = readData(1);
+                obj.playerScores(1) = readData(2);
+                obj.playerScores(2) = readData(3);
+            end
+        end
+
+
     end
 end
