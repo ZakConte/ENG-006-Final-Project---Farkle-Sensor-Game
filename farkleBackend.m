@@ -15,6 +15,7 @@ classdef farkleBackend < handle
         mobileDevConnection
         playerScores
         scoredDice
+        loadedDie
         previousScoredDice
         TargetSignalA % Orientation Azimuth signal
         TargetSignalP % Orientation Pitch signal
@@ -34,6 +35,7 @@ classdef farkleBackend < handle
             obj.scoredDice = 0;
             obj.gameOver = false;
             obj.gamePoints = 1500;
+            obj.loadedDie = "None";
         end
 
         function connectDevice(obj)
@@ -43,7 +45,8 @@ classdef farkleBackend < handle
         end
 
         function initialRoll(obj)
-            obj.currentHand = randi([1 6], 1, 6); % creates a random 6 length array with each index ranging from 1-6
+            obj.currentHand = randi([1 6], 1, 5); % creates a random 6 length array with each index ranging from 1-6
+            obj.rollLoadedDie;
             obj.selectedHand = [];
             obj.currentHandIndex = 1;
             disp('Running Initial Roll');
@@ -51,7 +54,8 @@ classdef farkleBackend < handle
 
         function rollRemainingDice(obj)
             diceRemaining = length(obj.currentHand);
-            obj.currentHand = randi([1 6], 1, diceRemaining); % re-rolls the number of dice remaining in players hand
+            obj.currentHand = randi([1 6], 1, diceRemaining-1); % re-rolls the number of dice remaining in players hand
+            obj.rollLoadedDie;
             obj.selectedHand = [];
             obj.currentHandIndex = 1;
             disp('Rerolling Dice');
@@ -240,6 +244,98 @@ classdef farkleBackend < handle
             obj.TargetSignalR  = ang(end, 3);
             obj.TargetSignalTs = ts(end);
             %disp(ang(end, :)); % BUGFIX LINE: WILL CONSTANTLY DISPLAY PHONE ORIENTATION VALUES IN CONSOLE
+        end
+
+        function rollLoadedDie(obj)
+            if(obj.loadedDie == "None")
+                obj.currentHand = [obj.currentHand, randi([1 6], 1, 1)]; %if no loaded die selected, simply roll an additional regular die
+            end
+            chance = randi([0 100]);
+
+            % roll for biased die
+            if(obj.loadedDie == "Biased Die")
+                if(chance <= 25)
+                    obj.currentHand = [obj.currentHand, 1];
+                elseif(chance <= 58)
+                    obj.currentHand = [obj.currentHand, 2];
+                elseif(chance <= 66)
+                    obj.currentHand = [obj.currentHand, 3];
+                elseif(chance <= 75)
+                    obj.currentHand = [obj.currentHand, 4];
+                elseif(chance <= 92)
+                    obj.currentHand = [obj.currentHand, 5];
+                else
+                    obj.currentHand = [obj.currentHand, 6];
+                end
+            end
+
+            % roll for Ci Die
+            if(obj.loadedDie == "Ci Die")
+                if(chance <= 13)
+                    obj.currentHand = [obj.currentHand, 1];
+                elseif(chance <= 26)
+                    obj.currentHand = [obj.currentHand, 2];
+                elseif(chance <= 39)
+                    obj.currentHand = [obj.currentHand, 3];
+                elseif(chance <= 52)
+                    obj.currentHand = [obj.currentHand, 4];
+                elseif(chance <= 65)
+                    obj.currentHand = [obj.currentHand, 5];
+                else
+                    obj.currentHand = [obj.currentHand, 6];
+                end
+            end
+
+            % roll for even numbered die
+            if(obj.loadedDie == "Even Numbers")
+                if(chance <= 7)
+                    obj.currentHand = [obj.currentHand, 1];
+                elseif(chance <= 33)
+                    obj.currentHand = [obj.currentHand, 2];
+                elseif(chance <= 40)
+                    obj.currentHand = [obj.currentHand, 3];
+                elseif(chance <= 66)
+                    obj.currentHand = [obj.currentHand, 4];
+                elseif(chance <= 73)
+                    obj.currentHand = [obj.currentHand, 5];
+                else
+                    obj.currentHand = [obj.currentHand, 6];
+                end
+            end
+
+            % roll for ones and fives
+            if(obj.loadedDie == "Ones and Fives")
+                if(chance <= 20)
+                    obj.currentHand = [obj.currentHand, 1];
+                elseif(chance <= 35)
+                    obj.currentHand = [obj.currentHand, 2];
+                elseif(chance <= 50)
+                    obj.currentHand = [obj.currentHand, 3];
+                elseif(chance <= 65)
+                    obj.currentHand = [obj.currentHand, 4];
+                elseif(chance <= 85)
+                    obj.currentHand = [obj.currentHand, 5];
+                else
+                    obj.currentHand = [obj.currentHand, 6];
+                end
+            end
+
+            % roll for odd numbered dice
+            if(obj.loadedDie == "Odd Numbers")
+                if(chance <= 26)
+                    obj.currentHand = [obj.currentHand, 1];
+                elseif(chance <= 33)
+                    obj.currentHand = [obj.currentHand, 2];
+                elseif(chance <= 59)
+                    obj.currentHand = [obj.currentHand, 3];
+                elseif(chance <= 66)
+                    obj.currentHand = [obj.currentHand, 4];
+                elseif(chance <= 92)
+                    obj.currentHand = [obj.currentHand, 5];
+                else
+                    obj.currentHand = [obj.currentHand, 6];
+                end
+            end
         end
     end
 end
